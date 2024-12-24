@@ -61,6 +61,12 @@ int main(int argc, char *argv[]) {
 
     char *lhost = NULL, *lport = NULL, *output_file = NULL;
 
+    // Debugging: Print all arguments to check their structure
+    printf("Arguments received:\n");
+    for (int i = 0; i < argc; i++) {
+        printf("  %d: %s\n", i, argv[i]);
+    }
+
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "LHOST=", 6) == 0) {
             lhost = argv[i] + 6;  // Extract IP from argument
@@ -71,10 +77,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Check if any arguments are missing
     if (lhost == NULL || lport == NULL || output_file == NULL) {
         usage();
         return 1;
     }
+
+    // Debugging: Print parsed arguments
+    printf("Parsed Arguments:\n");
+    printf("LHOST: %s\n", lhost);
+    printf("LPORT: %s\n", lport);
+    printf("Output File: %s\n", output_file);
 
     // Initialize Winsock
     WSADATA wsaData;
