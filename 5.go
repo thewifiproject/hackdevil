@@ -28,7 +28,8 @@ func main() {
 	}
 	defer ln.Close()
 
-	fmt.Println("Listening on", listenAddress)
+	// Print message indicating that the reverse TCP handler has started
+	fmt.Printf("[ * ] Started reverse TCP handler on %s\n", listenAddress)
 
 	// Accept incoming connections
 	conn, err := ln.Accept()
