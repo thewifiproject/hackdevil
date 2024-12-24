@@ -48,7 +48,7 @@ int main() {
     int bytes_received;
 
     // Hardcoded server IP and port
-    const char *server_ip = "10.0.1.25";
+    const char *server_ip = "10.0.1.35";
     const int server_port = 4444;
 
     // Initialize Winsock
