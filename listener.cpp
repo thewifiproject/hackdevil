@@ -1,118 +1,124 @@
-#include <iostream>
-#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <winsock2.h>
-#include <ws2tcpip.h>
 
-#pragma comment(lib, "ws2_32.lib")  // Link with the Winsock library
+#define BUFFER_SIZE 1024
 
-class MeterCrackListener {
-public:
-    void start() {
-        std::string lhost, lport;
-
-        // Set LHOST (IP address)
-        std::cout << "Enter LHOST (IP address): ";
-        std::cin >> lhost;
-        std::cout << "LHOST => " << lhost << std::endl;
-
-        // Set LPORT (Port)
-        std::cout << "Enter LPORT (Port): ";
-        std::cin >> lport;
-        std::cout << "LPORT => " << lport << std::endl;
-
-        // Confirm and auto-launch the listener
-        std::cout << "Starting the listener with LHOST = " << lhost << " and LPORT = " << lport << "...\n";
-
-        // Start the listener with network functionality
-        listener(lhost, lport);
+// Function to initialize Winsock
+int init_winsock() {
+    WSADATA wsaData;
+    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (result != 0) {
+        printf("WSAStartup failed with error: %d\n", result);
+        return 0;
     }
+    return 1;
+}
 
-    void listener(const std::string& lhost, const std::string& lport) {
-        WSADATA wsaData;
-        SOCKET listeningSocket = INVALID_SOCKET;
-        struct sockaddr_in serverAddr;
-        int port = std::stoi(lport);  // Convert string to int for the port
-
-        // Initialize Winsock
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-            std::cerr << "WSAStartup failed with error: " << WSAGetLastError() << std::endl;
-            return;
-        }
-
-        // Create a socket for the listener
-        listeningSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-        if (listeningSocket == INVALID_SOCKET) {
-            std::cerr << "Socket creation failed with error: " << WSAGetLastError() << std::endl;
-            WSACleanup();
-            return;
-        }
-
-        // Set up the sockaddr_in structure
-        serverAddr.sin_family = AF_INET;
-        serverAddr.sin_addr.s_addr = inet_addr(lhost.c_str());  // Convert IP address
-        serverAddr.sin_port = htons(port);  // Convert port number to network byte order
-
-        // Bind the socket to the IP address and port
-        if (bind(listeningSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-            std::cerr << "Bind failed with error: " << WSAGetLastError() << std::endl;
-            closesocket(listeningSocket);
-            WSACleanup();
-            return;
-        }
-
-        // Start listening for incoming connections
-        if (listen(listeningSocket, SOMAXCONN) == SOCKET_ERROR) {
-            std::cerr << "Listen failed with error: " << WSAGetLastError() << std::endl;
-            closesocket(listeningSocket);
-            WSACleanup();
-            return;
-        }
-
-        std::cout << "Listener started at " << lhost << ":" << lport << std::endl;
-
-        // Simulate the "metercrack" prompt after starting the listener
-        metercrackPrompt();
-
-        // Accept incoming connections (optional, not implemented fully here)
-        SOCKET clientSocket;
-        struct sockaddr_in clientAddr;
-        int clientAddrSize = sizeof(clientAddr);
-
-        while (true) {
-            clientSocket = accept(listeningSocket, (struct sockaddr*)&clientAddr, &clientAddrSize);
-            if (clientSocket == INVALID_SOCKET) {
-                std::cerr << "Accept failed with error: " << WSAGetLastError() << std::endl;
-                continue;
-            }
-
-            std::cout << "Connection established with client!" << std::endl;
-            closesocket(clientSocket);  // For now, just close the client connection immediately
-        }
-
-        // Cleanup
-        closesocket(listeningSocket);
-        WSACleanup();
-    }
-
-    void metercrackPrompt() {
-        std::string input;
-        while (true) {
-            std::cout << "metercrack > ";
-            std::getline(std::cin, input);
-
-            // Exit condition
-            if (input == "exit") {
-                break;
-            }
-
-            std::cout << "Executing command: " << input << std::endl;
-            // Add more command handling here as necessary
-        }
-    }
-};
+// Function to handle setting LHOST and LPORT
+void set_configuration(char* config_name, char* config_value) {
+    printf("%s => %s\n", config_name, config_value);
+}
 
 int main() {
-    MeterCrackListener listener;
-    listener.start();
+    char lhost[50], lport[10];
+    SOCKET server_sock, client_sock;
+    struct sockaddr_in server_addr, client_addr;
+    int client_len = sizeof(client_addr);
+    char buffer[BUFFER_SIZE];
+
+    // Initialize Winsock
+    if (!init_winsock()) {
+        return 1;
+    }
+
+    // Set LHOST and LPORT
+    printf("Enter LHOST (IP address): ");
+    fgets(lhost, sizeof(lhost), stdin);
+    lhost[strcspn(lhost, "\n")] = 0;  // Remove newline character
+
+    set_configuration("LHOST", lhost);
+
+    printf("Enter LPORT (Port): ");
+    fgets(lport, sizeof(lport), stdin);
+    lport[strcspn(lport, "\n")] = 0;  // Remove newline character
+
+    set_configuration("LPORT", lport);
+
+    // Create server socket
+    server_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (server_sock == INVALID_SOCKET) {
+        printf("Socket creation failed with error: %d\n", WSAGetLastError());
+        WSACleanup();
+        return 1;
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(atoi(lport));
+    server_addr.sin_addr.s_addr = inet_addr(lhost);
+
+    // Bind socket
+    if (bind(server_sock, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
+        printf("Bind failed with error: %d\n", WSAGetLastError());
+        closesocket(server_sock);
+        WSACleanup();
+        return 1;
+    }
+
+    // Listen for incoming connections
+    if (listen(server_sock, 1) == SOCKET_ERROR) {
+        printf("Listen failed with error: %d\n", WSAGetLastError());
+        closesocket(server_sock);
+        WSACleanup();
+        return 1;
+    }
+
+    printf("Waiting for clients...\n");
+
+    // Accept a client connection
+    client_sock = accept(server_sock, (struct sockaddr*)&client_addr, &client_len);
+    if (client_sock == INVALID_SOCKET) {
+        printf("Accept failed with error: %d\n", WSAGetLastError());
+        closesocket(server_sock);
+        WSACleanup();
+        return 1;
+    }
+
+    // Once client is connected, print command input prompt
+    printf("Client connected. Command input:\n");
+    
+    // Main interaction loop after client connection
+    while (1) {
+        printf("metercrack > ");
+        memset(buffer, 0, sizeof(buffer));
+
+        // Get command input from user
+        fgets(buffer, sizeof(buffer), stdin);
+        buffer[strcspn(buffer, "\n")] = 0; // Remove newline character
+
+        // Send command to client (if any)
+        if (strlen(buffer) > 0) {
+            send(client_sock, buffer, strlen(buffer), 0);
+        }
+
+        // Receive response from client
+        int recv_size = recv(client_sock, buffer, sizeof(buffer) - 1, 0);
+        if (recv_size == SOCKET_ERROR) {
+            printf("Recv failed with error: %d\n", WSAGetLastError());
+            break;
+        }
+        buffer[recv_size] = '\0';  // Null-terminate received data
+
+        if (recv_size > 0) {
+            printf("Client response: %s\n", buffer);
+        }
+    }
+
+    // Cleanup
+    closesocket(client_sock);
+    closesocket(server_sock);
+    WSACleanup();
+    
     return 0;
 }
