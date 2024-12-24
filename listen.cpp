@@ -33,10 +33,11 @@ void print_confirmation() {
 
 // Function to print the banner
 void print_banner() {
+    // Updated banner that doesn't have problematic escape sequences
     printf(" _ __ ___   ___| |_ ___ _ __ ___ _ __ __ _  ___| | __\n");
     printf("| '_ ` _ \\ / _ \\ __/ _ \\ '__/ __| '__/ _` |/ __| |/ /\n");
     printf("| | | | | |  __/ ||  __/ | | (__| | | (_| | (__|   < \n");
-    printf("|_| |_| |_|\\___|\\__\\___|_|  \\___|_|  \\__,_|\\___|_\\\\_\\\n");  // Fixed escape sequences
+    printf("|_| |_| |_|\\___|\\__\\___|_|  \\___|_|  \\__,_|\\___|_\\_\\\n");  // Fixed problematic escape sequence
     printf("\n");
 }
 
