@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -15,7 +14,7 @@ func printBanner() {
 	const blue = "\033[34m"
 	const reset = "\033[0m"
 	
-	// Print the banner in blue
+	// Print the banner in blue using raw string literal (backticks)
 	banner := `
   _    __   ___   ___| |_ ___ _ __ ___ _ __ __ _  ___| | __
  | '_ \` _ \ / _ \ __/ _ \ '__/ __| '__/ _\` |/ __| |/ /
