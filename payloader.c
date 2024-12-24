@@ -55,11 +55,11 @@ int main(int argc, char *argv[]) {
 
     for (int i = 1; i < argc; i++) {
         if (strncmp(argv[i], "LHOST=", 6) == 0) {
-            lhost = argv[i] + 6;
+            lhost = argv[i] + 6;  // Extract IP from argument
         } else if (strncmp(argv[i], "LPORT=", 6) == 0) {
-            lport = argv[i] + 6;
+            lport = argv[i] + 6;  // Extract port from argument
         } else if (strncmp(argv[i], "--write=", 8) == 0) {
-            output_file = argv[i] + 8;
+            output_file = argv[i] + 8;  // Extract filename from argument
         }
     }
 
