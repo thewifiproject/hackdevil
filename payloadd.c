@@ -54,7 +54,7 @@ void generate_payload(const char *lhost, const char *lport, const char *output_f
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 5) {
+    if (argc < 5) {
         usage();
         return 1;
     }
@@ -72,8 +72,15 @@ int main(int argc, char *argv[]) {
             lhost = argv[i] + 6;  // Extract IP from argument
         } else if (strncmp(argv[i], "LPORT=", 6) == 0) {
             lport = argv[i] + 6;  // Extract port from argument
-        } else if (strncmp(argv[i], "--write=", 8) == 0) {
-            output_file = argv[i] + 8;  // Extract filename from argument
+        } else if (strncmp(argv[i], "--write", 7) == 0) {
+            // Handle --write argument by checking the next argument
+            if (i + 1 < argc) {
+                output_file = argv[i + 1];  // Get the filename from the next argument
+                break; // exit after we find the filename for --write
+            } else {
+                usage();
+                return 1;
+            }
         }
     }
 
