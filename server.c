@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <winsock2.h>
 #include <stdlib.h>
+#include <string.h>
 
 #pragma comment(lib, "ws2_32.lib") // Link with ws2_32.lib
 
@@ -69,9 +70,14 @@ int main() {
 
     // Send commands to the client and receive output
     while (1) {
-        printf("metercrack> ");
+        printf("Command> ");
         fgets(buffer, sizeof(buffer), stdin);
-        send(client_socket, buffer, strlen(buffer), 0);  // Send command to client
+
+        // Remove newline from the input (if present)
+        buffer[strcspn(buffer, "\n")] = '\0';
+
+        // Send command to client
+        send(client_socket, buffer, strlen(buffer), 0);
 
         // Receive output from client
         int recv_size = recv(client_socket, buffer, sizeof(buffer) - 1, 0);
