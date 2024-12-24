@@ -69,7 +69,7 @@ int main() {
 
     // Send commands to the client and receive output
     while (1) {
-        printf("Command> ");
+        printf("metercrack> ");
         fgets(buffer, sizeof(buffer), stdin);
         send(client_socket, buffer, strlen(buffer), 0);  // Send command to client
 
