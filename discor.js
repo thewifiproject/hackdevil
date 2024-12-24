@@ -1,17 +1,41 @@
-const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const { Client, Intents, MessageEmbed } = require('discord.js');
+const { prefix, token, logChannelId, ownerId } = require('./config.json'); // Import configuration
 const fs = require('fs');
 const path = require('path');
-const readline = require('readline');
-const difflib = require('difflib');
+const regex = require('regex-fuzzy');
+const { promisify } = require('util');
+const setTimeoutAsync = promisify(setTimeout);
 
 // Define offensive words and banned domains (initial configuration)
-let OFFENSIVE_WORDS = ["negr", "debil", "hajzl", "píčo", "hajzle", "kokot", "connard"];
+let OFFENSIVE_WORDS = ["negr", "debil", "hajzl", "píčo", "hajzle", "kokot", "connard" "dick" ];
 let BANNED_DOMAINS = ["pornhub.com", "fr.pornhub.com", "xnxx.com"];
+
+let offenseCount = {};
+
+// Helper functions to check for offensive words and banned domains
+function checkOffensiveWords(content) {
+    return OFFENSIVE_WORDS.some(word => {
+        const regexPattern = new RegExp(`\\b${word}\\b`, 'i');
+        return regexPattern.test(content) || regex.getCloseMatches(content.toLowerCase(), [word], 1, 0.8).length > 0;
+    });
+}
+
+function checkBannedDomains(content) {
+    return BANNED_DOMAINS.some(domain => {
+        const regexPattern = new RegExp(`http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+${domain}`, 'i');
+        return regexPattern.test(content);
+    });
+}
+
+// Initialize bot with necessary intents
+const client = new Client({
+    intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES, Intents.FLAGS.DIRECT_MESSAGES, Intents.FLAGS.GUILD_MEMBERS]
+});
 
 // Load or save configuration
 function loadConfig() {
     try {
-        const config = JSON.parse(fs.readFileSync("config.json", "utf8"));
+        const config = JSON.parse(fs.readFileSync(path.join(__dirname, 'config.json')));
         OFFENSIVE_WORDS = config.offensive_words || OFFENSIVE_WORDS;
         BANNED_DOMAINS = config.banned_domains || BANNED_DOMAINS;
     } catch (err) {
@@ -20,51 +44,16 @@ function loadConfig() {
 }
 
 function saveConfig() {
-    const config = { offensive_words: OFFENSIVE_WORDS, banned_domains: BANNED_DOMAINS };
-    fs.writeFileSync("config.json", JSON.stringify(config, null, 2));
-}
-
-// Initialize bot
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers
-    ]
-});
-
-// Logging channel (set this to your desired channel ID)
-const LOG_CHANNEL_ID = '123456789012345678'; // Replace with your log channel ID
-
-// Offense tracking
-let offenseCount = {};
-
-// Helper functions
-function checkOffensiveWords(content) {
-    for (const word of OFFENSIVE_WORDS) {
-        // Exact word match or fuzzy match with a threshold
-        const wordRegex = new RegExp(`\\b${word}\\b`, 'i');
-        if (wordRegex.test(content) || difflib.getCloseMatches(content.toLowerCase(), [word], 1, 0.8).length > 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-function checkBannedDomains(content) {
-    for (const domain of BANNED_DOMAINS) {
-        const domainRegex = new RegExp(`http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+${domain}`, 'i');
-        if (domainRegex.test(content)) {
-            return true;
-        }
-    }
-    return false;
+    const config = {
+        offensive_words: OFFENSIVE_WORDS,
+        banned_domains: BANNED_DOMAINS
+    };
+    fs.writeFileSync(path.join(__dirname, 'config.json'), JSON.stringify(config, null, 4));
 }
 
 // Event when bot is ready
 client.once('ready', () => {
-    console.log(`Logged in as ${client.user.tag}`);
+    console.log(`Logged in as ${client.user.tag}!`);
     loadConfig();
 });
 
@@ -82,11 +71,11 @@ client.on('messageCreate', async (message) => {
         await message.delete();
         await message.channel.send(`${message.author}, your message contains offensive language. This is offense #${offenseCount[userId]}.`);
 
-        await logOffense(message, "Used offensive language");
+        await logOffense(message, 'Used offensive language');
 
         if (offenseCount[userId] >= 3) {
-            await timeoutUser(message.author, 15, "Repeated use of offensive language");
-            offenseCount[userId] = 0;  // Reset offense count after timeout
+            await timeoutUser(message.author, 15, 'Repeated use of offensive language');
+            offenseCount[userId] = 0; // Reset offense count after timeout
         }
     }
 
@@ -95,26 +84,25 @@ client.on('messageCreate', async (message) => {
         offenseCount[userId] += 1;
         await message.delete();
         await message.channel.send(`${message.author}, sharing prohibited links is not allowed. You have been banned for this offense.`);
-        await message.author.ban({ reason: "Shared prohibited links" });
+        await message.author.ban({ reason: 'Shared prohibited links' });
 
-        await logOffense(message, "Shared prohibited links", true);
+        await logOffense(message, 'Shared prohibited links', true);
     }
 });
 
 // Log offense to log channel
 async function logOffense(message, reason, banned = false) {
-    const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
+    const logChannel = await client.channels.fetch(logChannelId);
     if (logChannel) {
-        const embed = new EmbedBuilder()
+        const embed = new MessageEmbed()
             .setTitle('Moderation Action Taken')
-            .setColor(banned ? 0xFF0000 : 0xFFA500)
+            .setColor(banned ? 'RED' : 'ORANGE')
             .setTimestamp(message.createdAt)
-            .addFields(
-                { name: 'User', value: `${message.author.tag} (${message.author.id})`, inline: false },
-                { name: 'Reason', value: reason, inline: false },
-                { name: 'Message Content', value: message.content, inline: false },
-                { name: 'Channel', value: message.channel.name, inline: false }
-            );
+            .addField('User', `${message.author.tag} (${message.author.id})`, false)
+            .addField('Reason', reason, false)
+            .addField('Message Content', message.content, false)
+            .addField('Channel', message.channel.name, false);
+        
         await logChannel.send({ embeds: [embed] });
     }
 }
@@ -122,7 +110,7 @@ async function logOffense(message, reason, banned = false) {
 // Timeout user
 async function timeoutUser(user, minutes, reason) {
     try {
-        const duration = minutes * 60 * 1000; // convert to milliseconds
+        const duration = minutes * 60 * 1000; // Convert minutes to milliseconds
         await user.timeout(duration, reason);
         console.log(`Timed out ${user.tag} for ${minutes} minutes.`);
     } catch (err) {
@@ -130,61 +118,105 @@ async function timeoutUser(user, minutes, reason) {
     }
 }
 
-// Command handling (Admin commands to modify lists)
+// Check if the user is the owner of the bot (bypass check)
+async function isOwner(user) {
+    return user.id === ownerId;
+}
+
+// Ban command
 client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-    const args = message.content.split(' ');
+    if (message.content.startsWith(`${prefix}ban`)) {
+        if (!message.member.permissions.has('BAN_MEMBERS') && !await isOwner(message.author)) {
+            return message.reply("You do not have permission to ban members.");
+        }
 
-    // Only allow admin commands
-    if (!message.member.permissions.has('Administrator')) return;
+        const args = message.content.split(' ').slice(1);
+        const member = message.mentions.members.first();
+        const reason = args.slice(1).join(' ') || 'No reason provided';
 
-    if (args[0] === '!add_word') {
-        const word = args.slice(1).join(' ').toLowerCase();
+        if (!member) return message.reply("Please mention a valid member to ban.");
+        
+        if (member.id === message.author.id) return message.reply("You cannot ban yourself.");
+
+        try {
+            if (await isOwner(message.author)) {
+                await member.ban({ reason });
+                await message.channel.send(`${member} has been banned for: ${reason}`);
+            } else {
+                await member.ban({ reason });
+                await message.channel.send(`${member} has been banned for: ${reason}`);
+            }
+        } catch (err) {
+            message.reply(`Failed to ban ${member.tag}.`);
+        }
+    }
+});
+
+// Add offensive word command (admin only)
+client.on('messageCreate', async (message) => {
+    if (message.content.startsWith(`${prefix}addword`) && message.member.permissions.has('ADMINISTRATOR')) {
+        const args = message.content.split(' ').slice(1);
+        const word = args.join(' ').toLowerCase();
+
+        if (!word) return message.reply("Please provide a word to add.");
+
         OFFENSIVE_WORDS.push(word);
         saveConfig();
-        message.channel.send(`The word '${word}' has been added to the offensive words list.`);
+        message.reply(`The word '${word}' has been added to the offensive words list.`);
     }
+});
 
-    if (args[0] === '!remove_word') {
-        const word = args.slice(1).join(' ').toLowerCase();
+// Remove offensive word command (admin only)
+client.on('messageCreate', async (message) => {
+    if (message.content.startsWith(`${prefix}removeword`) && message.member.permissions.has('ADMINISTRATOR')) {
+        const args = message.content.split(' ').slice(1);
+        const word = args.join(' ').toLowerCase();
+
+        if (!word) return message.reply("Please provide a word to remove.");
+
         const index = OFFENSIVE_WORDS.indexOf(word);
         if (index !== -1) {
             OFFENSIVE_WORDS.splice(index, 1);
             saveConfig();
-            message.channel.send(`The word '${word}' has been removed from the offensive words list.`);
+            message.reply(`The word '${word}' has been removed from the offensive words list.`);
         } else {
-            message.channel.send(`The word '${word}' is not in the offensive words list.`);
+            message.reply(`The word '${word}' is not in the offensive words list.`);
         }
     }
+});
 
-    if (args[0] === '!add_domain') {
-        const domain = args.slice(1).join(' ').toLowerCase();
+// Add banned domain command (admin only)
+client.on('messageCreate', async (message) => {
+    if (message.content.startsWith(`${prefix}adddomain`) && message.member.permissions.has('ADMINISTRATOR')) {
+        const args = message.content.split(' ').slice(1);
+        const domain = args.join(' ').toLowerCase();
+
+        if (!domain) return message.reply("Please provide a domain to add.");
+
         BANNED_DOMAINS.push(domain);
         saveConfig();
-        message.channel.send(`The domain '${domain}' has been added to the banned domains list.`);
+        message.reply(`The domain '${domain}' has been added to the banned domains list.`);
     }
+});
 
-    if (args[0] === '!remove_domain') {
-        const domain = args.slice(1).join(' ').toLowerCase();
+// Remove banned domain command (admin only)
+client.on('messageCreate', async (message) => {
+    if (message.content.startsWith(`${prefix}removedomain`) && message.member.permissions.has('ADMINISTRATOR')) {
+        const args = message.content.split(' ').slice(1);
+        const domain = args.join(' ').toLowerCase();
+
+        if (!domain) return message.reply("Please provide a domain to remove.");
+
         const index = BANNED_DOMAINS.indexOf(domain);
         if (index !== -1) {
             BANNED_DOMAINS.splice(index, 1);
             saveConfig();
-            message.channel.send(`The domain '${domain}' has been removed from the banned domains list.`);
+            message.reply(`The domain '${domain}' has been removed from the banned domains list.`);
         } else {
-            message.channel.send(`The domain '${domain}' is not in the banned domains list.`);
+            message.reply(`The domain '${domain}' is not in the banned domains list.`);
         }
-    }
-
-    // New commands to list current offensive words and domains
-    if (args[0] === '!list_words') {
-        message.channel.send(`Current offensive words list: \n${OFFENSIVE_WORDS.join(', ')}`);
-    }
-
-    if (args[0] === '!list_domains') {
-        message.channel.send(`Current banned domains list: \n${BANNED_DOMAINS.join(', ')}`);
     }
 });
 
-// Run the bot with the token from environment variable
-client.login(process.env.DISCORD_TOKEN);
+// Login to Discord with the app's token
+client.login(token);
