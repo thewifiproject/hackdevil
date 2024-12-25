@@ -71,7 +71,7 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Error: %s", err))
 		} else {
 			// Send the output of the command inside a Markdown code block
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command Output: \n```%s```", output))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("Command Output: \n%s", "```"+output+"```"))
 		}
 	}
 }
