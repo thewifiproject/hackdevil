@@ -67,11 +67,24 @@ void main() {
         memset(buffer, 0, sizeof(buffer));
         printf("Shell> ");
         fgets(buffer, sizeof(buffer), stdin);
+
+        // Send the command to the client
         send(client_socket, buffer, strlen(buffer), 0);
 
+        // Receive the output from the client
         recv_size = recv(client_socket, buffer, sizeof(buffer), 0);
         if (recv_size == SOCKET_ERROR) {
-            printf("Recv failed. Error code: %d\n", WSAGetLastError());
+            int error_code = WSAGetLastError();
+            if (error_code == WSAECONNRESET) {
+                printf("Connection reset by peer. The client may have closed the connection.\n");
+            } else {
+                printf("Recv failed. Error code: %d\n", error_code);
+            }
+            break;
+        }
+
+        if (recv_size == 0) {
+            printf("Client closed the connection.\n");
             break;
         }
 
